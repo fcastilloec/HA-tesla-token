@@ -8,7 +8,7 @@ buffer = 604800  # 1 week in seconds
 
 if os.environ.get("PYTHON_ENV") == "production":
     ha_entries = "/usr/share/hassio/homeassistant/.storage/core.config_entries"
-    tesla_token = "/home/felipe/.config/transmission/tokens/tesla.json"
+    tesla_file = "/home/felipe/.config/ifttt-server/tokens/tesla.json"
 else:
     ha_entries = os.path.join(os.getcwd(), "core.config_entries")
     tesla_file = os.path.join(os.getcwd(), "tesla.json")
