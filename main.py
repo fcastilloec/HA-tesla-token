@@ -1,45 +1,44 @@
 #!/usr/bin/env python3
-import json
-import os
-from sys import exit
+""" Checks for updated Tesla tokens """
 
-# Buffer for not triggering a tesla token update from HA
-buffer = 604800  # 1 week in seconds
+import json
+import logging
+import os
+import sys
+
+# Change to DEBUG is needed
+logging.basicConfig(level=logging.WARNING)
 
 if os.environ.get("PYTHON_ENV") == "production":
-    ha_entries = "/usr/share/hassio/homeassistant/.storage/core.config_entries"
-    tesla_file = "/home/felipe/.config/ifttt-server/tokens/tesla.json"
+    logging.debug("Running in PRODUCTION mode")
+    HA_ENTRIES = "/usr/share/hassio/homeassistant/.storage/core.config_entries"
+    TESLA_FILE = "/home/felipe/.config/ifttt-server/tokens/tesla.json"
 else:
-    ha_entries = os.path.join(os.getcwd(), "core.config_entries")
-    tesla_file = os.path.join(os.getcwd(), "tesla.json")
+    logging.debug("Running in DEVELOPER mode")
+    HA_ENTRIES = os.path.join(os.getcwd(), "core.config_entries")
+    TESLA_FILE = os.path.join(os.getcwd(), "tesla.json")
 
-# Read JSON file
-with open(ha_entries) as file:
+# Read HA config file
+with open(HA_ENTRIES, encoding="utf-8") as file:
     data_entries = json.load(file)
+    # Find index of Tesla entry
+    for index, entry in enumerate(data_entries["data"]["entries"]):
+        if entry["domain"] == "tesla_custom":
+            tesla_index = index
+            break
+    else:
+        logging.error("No Tesla domain found!")
+        sys.exit(1)
 
-# Read Tesla token
-with open(tesla_file) as file:
-    tesla_token = json.load(file)
-
-# Find index of Tesla entry
-for index, entry in enumerate(data_entries["data"]["entries"]):
-    if entry["domain"] == "tesla":
-        tesla_index = index
-        break
-else:
-    tesla_index = False
-
-# Modify JSON if Tesla entry exists
-if tesla_index:
-    data_entries["data"]["entries"][tesla_index]["data"]["token"] = ""
-    data_entries["data"]["entries"][tesla_index]["data"]["access_token"] = tesla_token["access_token"]
-    data_entries["data"]["entries"][tesla_index]["data"]["expiration"] = (
-        tesla_token["created_at"] + tesla_token["expires_in"] + buffer
-    )
-else:
-    print("No Tesla entry found in HA")
-    exit(1)
-
-# Write modified entry file
-with open(ha_entries, "w") as file:
-    json.dump(data_entries, file, indent=4)
+# Read Tesla token file
+with open(TESLA_FILE, mode="r+", encoding="utf-8") as file:
+    if sorted(json.load(file).items()) == sorted(data_entries["data"]["entries"][tesla_index]["data"].items()):
+        print("Not need to update")
+        sys.exit(0)
+    else:
+        print("Updating tokens")
+        # Write modified entry file
+        file.seek(0)
+        json.dump(data_entries["data"]["entries"][tesla_index]["data"], file, indent=2)
+        file.write("\n")
+        file.truncate()
